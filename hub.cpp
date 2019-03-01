@@ -63,7 +63,7 @@ int main()
 	
 	
 	//keep check message, while probes are still on
-	while(flag_a || flag_b, flag_c)
+	while(flag_a || flag_b || flag_c)
 	{	
 		//check if msg is sent from probeA 
 		if(msg.mtype == Amtype){
