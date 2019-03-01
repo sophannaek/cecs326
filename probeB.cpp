@@ -42,12 +42,12 @@ int main()
 		if(data % beta == 0){
 			const string spid = to_string((long)getpid());
 			strncat(msg.greeting,spid.c_str(),size);
-			/* 
+		
 			pass = msgrcv(qid, (struct msgbuf *)&msg, size, 116, 0); 
 			if(pass == -1){
 				cout << strerror(errno) <<endl; 
 				return -1; 
-			}  */
+			}  
 			
 			
 		}
