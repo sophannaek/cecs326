@@ -107,90 +107,102 @@ void swap(SEMAPHORE &sem, char *shmBuf,int group1, int group2, int chunk1, int c
     //3rd group from 512*6 to 512*9 - 1
     //4th group from 512*9 to 512*12 - 1
     
+    int offset1;
+    int offset2;
+    int end1;
+    int end2;
+    
     // Get group1's starting index
     if(group1==1) {
-        int offset1 = 0;
+        offset1 = 0;
         // Get group1's ending index determined by what index chunk1 ends at
         if(chunk1==1) {
-            int end1 = 512-1;
+            end1 = 512-1;
         } else if(chunk1==2) {
-            int end1 = 512*2 - 1;
+            end1 = 512*2 - 1;
         } else if(chunk1==3) {
-            int end1 = 512*3 - 1;
+            end1 = 512*3 - 1;
         }
     } else if(group1==2) {
-        int offset1 = 512*3;
+        offset1 = 512*3;
         // Get group1's ending index determined by what index chunk1 ends at
         if(chunk1==1) {
-            int end1 = 512*4 - 1;
+            end1 = 512*4 - 1;
         } else if(chunk1==2) {
-            int end1 = 512*5 - 1;
+            end1 = 512*5 - 1;
         } else if(chunk1==3) {
-            int end1 = 512*6 - 1;
+            end1 = 512*6 - 1;
         }
     } else if(group1==3) {
-        int offset1 = 512*6;
+        offset1 = 512*6;
         // Get group1's ending index determined by what index chunk1 ends at
         if(chunk1==1) {
-            int end1 = 512*7 - 1;
+            end1 = 512*7 - 1;
         } else if(chunk1==2) {
-            int end1 = 512*8 - 1;
+            end1 = 512*8 - 1;
         } else if(chunk1==3) {
-            int end1 = 512*9 - 1;
+            end1 = 512*9 - 1;
         }
     } else if(group1==4) {
-        int offset1 = 512*9;
+        offset1 = 512*9;
         // Get group1's ending index determined by what index chunk1 ends at
         if(chunk1==1) {
-            int end1 = 512*10 - 1;
+            end1 = 512*10 - 1;
         } else if(chunk1==2) {
-            int end1 = 512*11 - 1;
+            end1 = 512*11 - 1;
         } else if(chunk1==3) {
-            int end1 = 512*1 - 1;
+            end1 = 512*1 - 1;
         }
     }
     
     // Get group1's starting index
     if(group2==1) {
-        int offset2 = 0;
+        offset2 = 0;
         // Get group1's ending index determined by what index chunk2 ends at
         if(chunk2==1) {
-            int end2 = 512-1;
+            end2 = 512-1;
         } else if(chunk2==2) {
-            int end2 = 512*2 - 1;
+            end2 = 512*2 - 1;
         } else if(chunk2==3) {
-            int end2 = 512*3 - 1;
+            end2 = 512*3 - 1;
         }
     } else if(group2==2) {
-        int offset2 = 512*3;
+        offset2 = 512*3;
         // Get group1's ending index determined by what index chunk2 ends at
         if(chunk2==1) {
-            int end2 = 512*4 - 1;
+            end2 = 512*4 - 1;
         } else if(chunk1==2) {
-            int end2 = 512*5 - 1;
+            end2 = 512*5 - 1;
         } else if(chunk1==3) {
-            int end2 = 512*6 - 1;
+            end2 = 512*6 - 1;
         }
     } else if(group2==3) {
-        int offset2 = 512*6;
+        offset2 = 512*6;
         // Get group1's ending index determined by what index chunk2 ends at
         if(chunk2==1) {
-            int end2 = 512*7 - 1;
+            end2 = 512*7 - 1;
         } else if(chunk1==2) {
-            int end2 = 512*8 - 1;
+            end2 = 512*8 - 1;
         } else if(chunk1==3) {
-            int end2 = 512*9 - 1;
+            end2 = 512*9 - 1;
         }
     } else if(group2==4) {
-        int offset2 = 512*9;
+        offset2 = 512*9;
         // Get group1's ending index determined by what index chunk2 ends at
         if(chunk2==1) {
-            int end2 = 512*10 - 1;
+            end2 = 512*10 - 1;
         } else if(chunk1==2) {
-            int end2 = 512*11 - 1;
+            end2 = 512*11 - 1;
         } else if(chunk1==3) {
-            int end2 = 512*1 - 1;
+            end2 = 512*1 - 1;
         }
+    }
+    
+    // swap contents of group1 chunk1 into group2 chunk2
+    for (int i = offset1; i < end1; i++) {
+        sem.P(sem1);
+        tmp = *(shmBuf+i);
+        sem.V(sem1);
     }
 }
 void initializeLowerChars(char *shmBuf, int index){
