@@ -8,6 +8,10 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include "semaphore.h"
+#include <stdlib.h>     /* srand, rand */
+#include <time.h>       /* time */
+#include <random>
+
 
 using namespace std;
 const int CHUNKSIZE = 512; //the size of each chunk
@@ -22,8 +26,8 @@ void initializeLowerChars(char *, int);
 void initializeUpperChars(char *, int);
 
 int main() {
-    int count;
-    signed int speed_check;
+    int userIn;
+    int speed_check;
     int shmid;
     char *shmBUF;
     
@@ -35,7 +39,7 @@ int main() {
     shmBUF = (char *)shmat(shmid, 0, SHM_RND);
     
     cout << "Enter the number of time you want to do speed_check" <<endl;
-    cin >> count ;
+    cin >> userIn;
     
     
     //create 4 groups/segments of shared memory
@@ -53,47 +57,62 @@ int main() {
     initializeUpperChars(shmBUF, 512*6); //3rd group
     initializeUpperChars(shmBUF, 512*9);//4th group
     
+//    for(int k=0; k<CHUNKSIZE; k++){
+//        cout << *(shmBUF+k);
+//    }
     
+    default_random_engine generator(time(NULL) ^ (getpid()<<16));
+    
+    // define the range of the random number. (32 bit integer)
+    uniform_int_distribution<int> distribution(-2147483648, 2147483647);
+    
+    int speedCheckCounter = 0;
     //create 5 processes
-    for (int i=0; i< 5 ; i++){
+    for (int i=0; i< 4 ; i++){
         if (fork() == 0) {
+            cout<<endl;
             printf("[child] pid %d from [parent] pid %d\n",getpid(),getppid());
             
-            //Each process generate a random 32-bit random integer
-            //create a random integer between 0 and 2^31 -1
-            srand(time(0));
-            speed_check = rand();
-            cout << speed_check<<endl;
-            if (speed_check < 5000){
-                //randomly selects 2 groups and randomly chooses one chunk from each of
-                //these 2 groups to swap
-                int group1= rand()% 4;//select randomly for the 1st group to swap
-                int group2 = rand()% 4;//select randomly for the 2nd group
-                int chunk1 = rand()% 3;//select one chunk to swap
-                int chunk2 = rand() % 3;//select one chunk to swap
-                
-                while(group1 == group2){
-                    group2 = rand() % 4;
-                    cout <<group2<<endl;
+            while (speedCheckCounter < userIn) {
+                speedCheckCounter++;
+                //Each process generate a random 32-bit random integer
+                //create a random integer between 0 and 2^31 -1
+                speed_check = distribution(generator);    // generate the 32 bit integer
+                cout << "speed_check:" << speed_check<<endl;
+                if (speed_check < 5000){
+                    cout<<"!!!!!!!!"<<endl;
+                    //randomly selects 2 groups and randomly chooses one chunk from each of
+                    //these 2 groups to swap
+                    int group1= rand()% 4 + 1;//select randomly for the 1st group to swap
+                    int group2 = rand()% 4 + 1;//select randomly for the 2nd group
+                    int chunk1 = rand()% 3 + 1;//select one chunk to swap
+                    int chunk2 = rand() % 3 + 1;//select one chunk to swap
+                    
+                    while(group1 == group2){
+                        group2 = rand() % 4 + 1;
+                        cout <<group2<<endl;
+                    }
+//                    cout<<"group 1: "<<group1<<endl;
+//                    cout<<"group 2: "<<group2<<endl;
+//                    cout<<"chunk1: "<<chunk1<<endl;
+//                    cout<<"chunk 2: "<<chunk2<<endl;
+                    //need mutex here
+                    swap(sem,shmBUF,group1,group2,chunk1,chunk2);
+                    
+                    //  swap(chunk1,chunk2);
                 }
-                //need mutex here
-                swap(sem,shmBUF,group1,group2,chunk1,chunk2);
-                
-                
-                
-                //  swap(chunk1,chunk2);
-            }
-            else{
-                cout<<"speed_check is greater than 5000 -- no swap is made"<<endl;
+                else{
+                    cout<<"speed_check is greater than 5000 -- no swap is made"<<endl;
+                }
             }
             
             exit(0);
         }
     }
     
-    for (int i = 0l; i <5 ; i++ )
+    for (int i = 0; i <5 ; i++ )
         wait(NULL);
-    
+    parent_cleanup(sem, shmid);
     return 0;
 }
 
@@ -112,7 +131,7 @@ void swap(SEMAPHORE &sem, char *shmBuf,int group1, int group2, int chunk1, int c
     int end1;
     int end2;
     
-    // Get group1's starting index
+    // Get group1's starting index (offset1)
     if(group1==1) {
         offset1 = 0;
         // Get group1's ending index determined by what index chunk1 ends at
@@ -155,7 +174,7 @@ void swap(SEMAPHORE &sem, char *shmBuf,int group1, int group2, int chunk1, int c
         }
     }
     
-    // Get group1's starting index
+    // Get group2's starting index (offset2)
     if(group2==1) {
         offset2 = 0;
         // Get group1's ending index determined by what index chunk2 ends at
@@ -198,15 +217,73 @@ void swap(SEMAPHORE &sem, char *shmBuf,int group1, int group2, int chunk1, int c
         }
     }
     
-    // swap contents of group1 chunk1 into group2 chunk2
-    for (int i = offset1; i < end1; i++) {
-        sem.P(sem1);
-        tmp = *(shmBuf+i);
-        sem.V(sem1);
-    }
+//    cout<<"offset1: "<<offset1<<endl;
+//    cout<<"offset2: "<<offset2<<endl;
+//
+//
+//    char temp1[CHUNKSIZE];
+//    int index=0;
+//    cout << "orginal"<<endl;
+//    for(int k=offset1; k<end1; k++){
+//        cout << *(shmBuf+k);
+//    }
+//
+//    for(int i = offset1; i < end1; i++) {
+//     temp1[index] = *(shmBuf+i);
+//        index++;
+//    }
+//    //copy 2nd chunk into first chunk
+//    int t_offset2 = offset2;
+//    for(int i = offset1; i < end1; i++) {
+//        *(shmBuf+i) = *(shmBuf+t_offset2);
+//        t_offset2++;
+//    }
+//    index=0;
+//    //copy 1st chunk into 2nd chunk
+//    for(int i = offset2; i < end2; i++) {
+//        *(shmBuf+i) = temp1[index];
+//        index++;
+//    }
+//     cout << "copied"<<endl;
+//    for(int k=offset2; k<end2; k++){
+//        cout << *(shmBuf+k);
+//    }
+    
+//    // swap contents of group1 chunk1 into group2 chunk2
+//    char temp1[CHUNKSIZE];
+//    char temp3[CHUNKSIZE];
+//    cout << "second:";
+//    for(int k=offset2; k<end2; k++){
+//        cout << *(shmBuf+k);
+//    }
+//    cout<<endl;
+//    int index = 0;
+//    for (int i = offset1; i < end1; i++) {
+//        temp1[index] = *(shmBuf + i);
+//        index++;
+//    }
+//    char temp2[CHUNKSIZE];
+//    index = 0;
+//    for (int i = offset2; i < end2; i++) {
+//        temp1[index] = *(shmBuf + i);
+//        index++;
+//    }
+//    strncpy ( temp3, temp1, CHUNKSIZE );//copy first chunk to temp3
+//    strncpy ( temp1, temp2, CHUNKSIZE );//copy 2nd chunk to 1st chunk
+//    strncpy ( temp2, temp3, CHUNKSIZE );
+//
+//    cout << "first:";
+//
+//    for(int k=offset1; k<end1; k++){
+//        cout << *(shmBuf+k);
+//    }
+//    cout<<endl;
+
+    cout<<index<<endl;
+    
 }
 void initializeLowerChars(char *shmBuf, int index){
-    for(int i=index; i< index + CHUNKSIZE * 3; i++){
+    for(int i=index; i< CHUNKSIZE * 3; i++){
         //generate random lowercase letters
         char letter = (char)((rand()%26) + 97);
         *(shmBuf+i) = letter;
@@ -220,9 +297,7 @@ void initializeUpperChars(char *shmBuf, int index){
         *(shmBuf+i) = letter;
     }
 }
-void create_group(SEMAPHORE &sem, char *shmBUF){
-    
-}
+
 
 void parent_cleanup (SEMAPHORE &sem, int shmid) {
     
