@@ -1,8 +1,3 @@
-//
-//  main.cpp
-//  speed_check
-//
-
 #include <iostream>
 #include<ctime>
 #include <unistd.h>
@@ -21,15 +16,14 @@ const int numGroup = 4 ; //number of segments/group
 int BUFFSIZE = CHUNKSIZE * numChunk * numGroup;
 enum{sem1,sem2};//semaphore variables
 
-void swap(SEMAPHORE &sem, char *shmBuf,int num1, int num2);
+void swap(SEMAPHORE &, char *,int, int,int, int);
 void parent_cleanup(SEMAPHORE &, int);
-void initializeLowerChars(char *shmBuf, int index);
-void initializeUpperChars(char *shmBuf, int index);
+void initializeLowerChars(char *, int);
+void initializeUpperChars(char *, int);
 
-int main(int argc, const char * argv[]) {
-    // insert code here...
+int main() {
     int count;
-    int speed_check;
+    signed int speed_check;
     int shmid;
     char *shmBUF;
 
@@ -49,6 +43,12 @@ int main(int argc, const char * argv[]) {
 
     //the first group (all three chunks) will be initialized with lowercase letter
     //the 3 other group will be initialized with uppercase letter
+    //first group from 0 - 512*3
+    initializeLowerChars(shmBUF,0);//first group
+    initializeUpperChars(shmBUF,1);//2nd group
+    initializeUpperChars(shmBUF, 2); //3rd group
+    initializeUpperChars(shmBUF, 3);//4th group
+
 
     //create 5 processes
     for (int i=0; i< 5 ; i++){
@@ -59,22 +59,28 @@ int main(int argc, const char * argv[]) {
             //create a random integer between 0 and 2^31 -1
             srand(time(0));
             speed_check = rand();
+            cout << speed_check<<endl;
             if (speed_check < 5000){
                 //randomly selects 2 groups and randomy chooses one chunk from each of
                 //these 2 groups to swap
-                int num1= rand() % 4;
-                int num2 = rand()% 4;
-                int num3 = rand()% 3;
-                int num4 = rand() %3;
+                int num1= rand()% 4;//select randomly for the 1st group to swap
+                int num2 = rand()% 4;//select randomly for the 2nd group
+                int num3 = rand()% 3;//select one chunk to swap
+                int num4 = rand() %3;//select one chunk to swap
 
-                if(num1 ==num2){
-                     int num2 = rand() % 4;
+                while(num1 ==num2){
+                    num2 = rand() % 4;
+                    cout <<num2<<endl;
                 }
-                swap(sem1,shmBUF,num1,num2);
+                //need mutex here
+                swap(sem,shmBUF,num1,num2,num3,num4);
 
 
 
               //  swap(chunk1,chunk2);
+            }
+            else{
+                cout<<"speed_check is greater than 5000 -- no swap is made"<<endl;
             }
 
             exit(0);
@@ -84,17 +90,16 @@ int main(int argc, const char * argv[]) {
     for (int i = 0l; i <5 ; i++ )
         wait(NULL);
 
-
     return 0;
 }
 
 
 
-void swap(SEMAPHORE &sem, char *shmBuf,int num1, int num2){
-    
+void swap(SEMAPHORE &sem, char *shmBuf,int num1, int num2, int num3, int num4){
+    cout <<"hello"<<endl;
 }
 void initializeLowerChars(char *shmBuf, int index){
-    for(int i=0; i< CHUNKSIZE; i++){
+    for(int i=index; i< index + CHUNKSIZE * 3; i++){
         //generate random lowercase letters
         char letter = (char)((rand()%26) + 97);
         *(shmBuf+i) = letter;
@@ -102,19 +107,15 @@ void initializeLowerChars(char *shmBuf, int index){
 }
 
 void initializeUpperChars(char *shmBuf, int index){
-    for(int i=0; i< CHUNKSIZE; i++){
+    for(int i=index; i< (index + CHUNKSIZE * 3); i++){
         //generate random lowercase letters
         char letter = (char)((rand()%26) +65);
         *(shmBuf+i) = letter;
     }
 }
+void create_group(SEMAPHORE &sem, char *shmBUF){
 
-
-
-
-
-
-
+}
 
 void parent_cleanup (SEMAPHORE &sem, int shmid) {
 
@@ -123,4 +124,3 @@ void parent_cleanup (SEMAPHORE &sem, int shmid) {
     shmctl(shmid, IPC_RMID, NULL);    /* cleaning up */
     sem.remove();
 } // parent_cleanup
-
