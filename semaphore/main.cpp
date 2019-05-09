@@ -1,10 +1,5 @@
-//
-//  main.cpp
-//  speed_check
-//
-
 #include <iostream>
-#include<ctime>
+#include <ctime>
 #include <unistd.h>
 #include <limits.h>
 #include <sys/types.h>
@@ -13,159 +8,214 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include "semaphore.h"
-#include <cmath>
-
 
 using namespace std;
 const int CHUNKSIZE = 512; //the size of each chunk
-const int numChunk =  3; //number of chunks in each group
-const int numGroup = 4 ; //number of groups/segments of shared memory
-int BUFFSIZE = CHUNKSIZE * numChunk;
-enum{sem1, sem2};//semaphore variables
+const int numChunk =  3; //number of chunk in each segments
+const int numGroup = 4 ; //number of segments/group
+int BUFFSIZE = CHUNKSIZE * numChunk * numGroup;
+enum{sem1,sem2};//semaphore variables
 
-void swap(SEMAPHORE &sem, char *shmBuf,int num1, int num2);
+void swap(SEMAPHORE &, char *,int, int,int, int);
 void parent_cleanup(SEMAPHORE &, int);
-void initializeLowerChars(char *shmBuf);
-void initializeUpperChars(char *shmBuf);
+void initializeLowerChars(char *, int);
+void initializeUpperChars(char *, int);
 
-int main(int argc, const char * argv[]) {
-    // insert code here...
+int main() {
     int count;
-    int speed_check;
+    signed int speed_check;
+    int shmid;
+    char *shmBUF;
     
-    // 4 groups of shared memory:
-    int shmid1;
-    int shmid2;
-    int shmid3;
-    int shmid4;
-    
-    char *shmBUF1;
-    char *shmBUF2;
-    char *shmBUF3;
-    char *shmBUF4;
-
     SEMAPHORE sem(2);//array of 2 semaphores
-
-
-    cout << "Enter the number of times you want to do speed_check" <<endl;
-    cin >> count;
-
-
-    //create 4 groups/segments of shared memory:
-    //each group holds three 512 byte chunks
-
-    //allocates shared memory
-    shmid1 = shmget(IPC_PRIVATE, BUFFSIZE, PERMS);
-    //attach to shared memory
-    shmBUF1 = (char *)shmat(shmid1, 0, SHM_RND);
     
     //allocates shared memory
-    shmid2 = shmget(IPC_PRIVATE, BUFFSIZE, PERMS);
+    shmid = shmget(IPC_PRIVATE, BUFFSIZE*sizeof(char), PERMS);
     //attach to shared memory
-    shmBUF2 = (char *)shmat(shmid2, 0, SHM_RND);
+    shmBUF = (char *)shmat(shmid, 0, SHM_RND);
     
-    //allocates shared memory
-    shmid3 = shmget(IPC_PRIVATE, BUFFSIZE, PERMS);
-    //attach to shared memory
-    shmBUF3 = (char *)shmat(shmid3, 0, SHM_RND);
+    cout << "Enter the number of time you want to do speed_check" <<endl;
+    cin >> count ;
     
-    //allocates shared memory
-    shmid4 = shmget(IPC_PRIVATE, BUFFSIZE, PERMS);
-    //attach to shared memory
-    shmBUF4 = (char *)shmat(shmid4, 0, SHM_RND);
     
-
+    //create 4 groups/segments of shared memory
+    //each group holds three 512 bytes chunk
+    
     //the first group (all three chunks) will be initialized with lowercase letter
-    initializeLowerChars(shmBUF1);
-    
     //the 3 other group will be initialized with uppercase letter
-    initializeUpperChars(shmBUF2);
-    initializeUpperChars(shmBUF3);
-    initializeUpperChars(shmBUF4);
+    //1st group from 0 to 512*3 - 1
+    //2nd group from 512*3 to 512*6 - 1
+    //3rd group from 512*6 to 512*9 - 1
+    //4th group from 512*9 to 512*12 - 1
 
+    initializeLowerChars(shmBUF, 0);//first group
+    initializeUpperChars(shmBUF, 512*3);//2nd group
+    initializeUpperChars(shmBUF, 512*6); //3rd group
+    initializeUpperChars(shmBUF, 512*9);//4th group
+    
+    
     //create 5 processes
     for (int i=0; i< 5 ; i++){
         if (fork() == 0) {
             printf("[child] pid %d from [parent] pid %d\n",getpid(),getppid());
-
+            
             //Each process generate a random 32-bit random integer
             //create a random integer between 0 and 2^31 -1
-            srand(time(NULL));
+            srand(time(0));
             speed_check = rand();
+            cout << speed_check<<endl;
             if (speed_check < 5000){
-                //randomly selects 2 groups
-                int num1 = rand() % 4;
-                int num2 = rand() % 4;
+                //randomly selects 2 groups and randomly chooses one chunk from each of
+                //these 2 groups to swap
+                int group1= rand()% 4;//select randomly for the 1st group to swap
+                int group2 = rand()% 4;//select randomly for the 2nd group
+                int chunk1 = rand()% 3;//select one chunk to swap
+                int chunk2 = rand() % 3;//select one chunk to swap
                 
-                //randomly choose one chunk from each of these 2 groups to swap
-                int num3 = rand() % 3;
-                int num4 = rand() % 3;
-                
-                // get the offset for each chunk
-                if(num3==1) {
-                    int offset = 0;
-                } else if(num3==2) {
-                    int offset = 512;
-                } else if(num3==3) {
-                    int offset = 1024;
+                while(group1 == group2){
+                    group2 = rand() % 4;
+                    cout <<group2<<endl;
                 }
-
-                while (num1 == num2){ // If the 2 groups are the same
-                     int num2 = rand() % 4;
-                }
+                //need mutex here
+                swap(sem,shmBUF,group1,group2,chunk1,chunk2);
                 
                 
-                swap(sem1, shmBUF, num1, num2);
-
-
-
-              //  swap(chunk1,chunk2);
+                
+                //  swap(chunk1,chunk2);
             }
-
+            else{
+                cout<<"speed_check is greater than 5000 -- no swap is made"<<endl;
+            }
+            
             exit(0);
         }
     }
-
+    
     for (int i = 0l; i <5 ; i++ )
         wait(NULL);
-
-
+    
     return 0;
 }
 
 
 
-void swap(SEMAPHORE &sem, char *shmBuf, int num1, int num2){
+void swap(SEMAPHORE &sem, char *shmBuf,int group1, int group2, int chunk1, int chunk2){
+    cout <<"hello"<<endl;
     
+    //1st group from 0 to 512*3 - 1
+    //2nd group from 512*3 to 512*6 - 1
+    //3rd group from 512*6 to 512*9 - 1
+    //4th group from 512*9 to 512*12 - 1
+    
+    // Get group1's starting index
+    if(group1==1) {
+        int offset1 = 0;
+        // Get group1's ending index determined by what index chunk1 ends at
+        if(chunk1==1) {
+            int end1 = 512-1;
+        } else if(chunk1==2) {
+            int end1 = 512*2 - 1;
+        } else if(chunk1==3) {
+            int end1 = 512*3 - 1;
+        }
+    } else if(group1==2) {
+        int offset1 = 512*3;
+        // Get group1's ending index determined by what index chunk1 ends at
+        if(chunk1==1) {
+            int end1 = 512*4 - 1;
+        } else if(chunk1==2) {
+            int end1 = 512*5 - 1;
+        } else if(chunk1==3) {
+            int end1 = 512*6 - 1;
+        }
+    } else if(group1==3) {
+        int offset1 = 512*6;
+        // Get group1's ending index determined by what index chunk1 ends at
+        if(chunk1==1) {
+            int end1 = 512*7 - 1;
+        } else if(chunk1==2) {
+            int end1 = 512*8 - 1;
+        } else if(chunk1==3) {
+            int end1 = 512*9 - 1;
+        }
+    } else if(group1==4) {
+        int offset1 = 512*9;
+        // Get group1's ending index determined by what index chunk1 ends at
+        if(chunk1==1) {
+            int end1 = 512*10 - 1;
+        } else if(chunk1==2) {
+            int end1 = 512*11 - 1;
+        } else if(chunk1==3) {
+            int end1 = 512*1 - 1;
+        }
+    }
+    
+    // Get group1's starting index
+    if(group2==1) {
+        int offset2 = 0;
+        // Get group1's ending index determined by what index chunk2 ends at
+        if(chunk2==1) {
+            int end2 = 512-1;
+        } else if(chunk2==2) {
+            int end2 = 512*2 - 1;
+        } else if(chunk2==3) {
+            int end2 = 512*3 - 1;
+        }
+    } else if(group2==2) {
+        int offset2 = 512*3;
+        // Get group1's ending index determined by what index chunk2 ends at
+        if(chunk2==1) {
+            int end2 = 512*4 - 1;
+        } else if(chunk1==2) {
+            int end2 = 512*5 - 1;
+        } else if(chunk1==3) {
+            int end2 = 512*6 - 1;
+        }
+    } else if(group2==3) {
+        int offset2 = 512*6;
+        // Get group1's ending index determined by what index chunk2 ends at
+        if(chunk2==1) {
+            int end2 = 512*7 - 1;
+        } else if(chunk1==2) {
+            int end2 = 512*8 - 1;
+        } else if(chunk1==3) {
+            int end2 = 512*9 - 1;
+        }
+    } else if(group2==4) {
+        int offset2 = 512*9;
+        // Get group1's ending index determined by what index chunk2 ends at
+        if(chunk2==1) {
+            int end2 = 512*10 - 1;
+        } else if(chunk1==2) {
+            int end2 = 512*11 - 1;
+        } else if(chunk1==3) {
+            int end2 = 512*1 - 1;
+        }
+    }
 }
-void initializeLowerChars(char *shmBuf){
-    for(int i=0; i < BUFFSIZE; i++){
+void initializeLowerChars(char *shmBuf, int index){
+    for(int i=index; i< index + CHUNKSIZE * 3; i++){
         //generate random lowercase letters
         char letter = (char)((rand()%26) + 97);
         *(shmBuf+i) = letter;
     }
 }
 
-void initializeUpperChars(char *shmBuf){
-    for(int i=0; i< CHUNKSIZE; i++){
+void initializeUpperChars(char *shmBuf, int index){
+    for(int i=index; i< (index + CHUNKSIZE * 3); i++){
         //generate random lowercase letters
         char letter = (char)((rand()%26) +65);
         *(shmBuf+i) = letter;
     }
 }
-
-
-
-
-
-
-
+void create_group(SEMAPHORE &sem, char *shmBUF){
+    
+}
 
 void parent_cleanup (SEMAPHORE &sem, int shmid) {
-
+    
     int status;            /* child status */
     wait(0);    /* wait for child to exit */
     shmctl(shmid, IPC_RMID, NULL);    /* cleaning up */
     sem.remove();
 } // parent_cleanup
-
